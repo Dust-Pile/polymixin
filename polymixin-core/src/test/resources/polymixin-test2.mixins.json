@@ -1,0 +1,9 @@
+{
+  "required": false,
+  "minVersion": "0.8",
+  "package": "dev.polymixin.testmixins2",
+  "plugin": "dev.polymixin.testplugin2.SecondPlugin",
+  "mixins": [
+    "MixinSecondConsumer"
+  ]
+}

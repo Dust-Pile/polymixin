@@ -1,0 +1,10 @@
+.gradle/
+build/
+*/build/
+.research/
+run/
+*.log
+examples/*/run/world/
+examples/*/run/logs/
+examples/*/run/mods/*.jar
+verify/

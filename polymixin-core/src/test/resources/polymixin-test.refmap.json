@@ -1,0 +1,7 @@
+{
+  "mappings": {
+    "dev/polymixin/testmixins/MixinBaseBlock": {
+      "canSurvive()Z": "Ldev/polymixin/testgame/BaseBlock;canSurvive()Z"
+    }
+  }
+}

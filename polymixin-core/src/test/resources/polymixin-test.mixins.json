@@ -1,0 +1,18 @@
+{
+  "required": false,
+  "minVersion": "0.8",
+  "package": "dev.polymixin.testmixins",
+  "plugin": "dev.polymixin.testplugin.TestPlugin",
+  "refmap": "polymixin-test.refmap.json",
+  "mixins": [
+    "MixinBaseBlock",
+    "MixinLenientBlock",
+    "MixinShadowBlock",
+    "MixinExtrasBlock",
+    "MixinHardnessAccessor",
+    "MixinMultiTarget"
+  ],
+  "client": [
+    "MixinClientOnlyBlock"
+  ]
+}

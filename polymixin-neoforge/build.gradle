@@ -1,0 +1,16 @@
+description = 'PolyMixin ClasspathSource for NeoForge 1.21.1'
+
+dependencies {
+    bundled project(':polymixin-core')
+    bundled "io.github.classgraph:classgraph:${classgraph_version}"
+
+    compileOnly "net.fabricmc:sponge-mixin:${neoforge_mixin_version}"
+    compileOnly "net.neoforged.fancymodloader:loader:${fancymodloader_version}"
+    compileOnly "org.ow2.asm:asm:${asm_version}"
+    compileOnly "org.ow2.asm:asm-tree:${asm_version}"
+    compileOnly "cpw.mods:securejarhandler:3.0.8"
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.release = 21
+}

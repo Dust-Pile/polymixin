@@ -1,0 +1,9 @@
+{
+  "required": false,
+  "minVersion": "0.8",
+  "package": "dev.polymixin.testmixins3",
+  "mixins": [
+    "MixinAnnotationDriven",
+    "MixinSuperChain"
+  ]
+}

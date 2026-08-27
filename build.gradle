@@ -1,0 +1,111 @@
+plugins {
+    id 'java-library'
+    id 'maven-publish'
+}
+
+allprojects {
+    apply plugin: 'java-library'
+    apply plugin: 'maven-publish'
+
+    group = rootProject.group
+    version = rootProject.version
+
+    repositories {
+        mavenCentral()
+        maven {
+            name = 'MinecraftForge'
+            url = 'https://maven.minecraftforge.net/'
+        }
+        maven {
+            name = 'NeoForged'
+            url = 'https://maven.neoforged.net/releases'
+        }
+        maven {
+            name = 'FabricMC'
+            url = 'https://maven.fabricmc.net/'
+        }
+        maven {
+            name = 'Sponge'
+            url = 'https://repo.spongepowered.org/repository/maven-public/'
+        }
+    }
+
+    tasks.withType(JavaCompile).configureEach {
+        options.encoding = 'UTF-8'
+        options.release = 17
+    }
+
+    java {
+        toolchain.languageVersion = JavaLanguageVersion.of(21)
+        withSourcesJar()
+    }
+
+//    if (project != rootProject) publishing {
+//        publications {
+//            maven(MavenPublication) {
+//                from components.java
+//            }
+//        }
+//
+//        repositories {
+//            def mavenUser = findProperty('mavenUser') ?: System.getenv('MAVEN_USER')
+//            def mavenPass = findProperty('mavenPass') ?: System.getenv('MAVEN_PASS')
+//            if (mavenUser && mavenPass) {
+//                maven {
+//                    name = 'Leclowndu93150'
+//                    url = version.toString().endsWith('-SNAPSHOT')
+//                            ? 'https://maven.leclowndu93150.dev/snapshots'
+//                            : 'https://maven.leclowndu93150.dev/releases'
+//                    credentials {
+//                        username = mavenUser
+//                        password = mavenPass
+//                    }
+//                }
+//            }
+//        }
+//    }
+
+    tasks.withType(Test).configureEach {
+        useJUnitPlatform()
+        testLogging {
+            events 'passed', 'skipped', 'failed'
+            showStandardStreams = true
+        }
+    }
+}
+
+// The platform artifacts are self-contained mod jars: core + platform + ClassGraph.
+// ClassGraph is intentionally NOT relocated - see RESEARCH.md section 6.4.
+subprojects { sub ->
+    if (sub.name == 'polymixin-core') return
+
+    sub.configurations {
+        bundled
+        compileOnly.extendsFrom bundled
+    }
+
+    sub.tasks.named('jar', Jar) {
+        duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+        manifest {
+            attributes(
+                'Specification-Title': 'polymixin',
+                'Specification-Version': sub.version,
+                'Implementation-Title': sub.name,
+                'Implementation-Version': sub.version
+            )
+        }
+        dependsOn sub.configurations.bundled
+        from({
+            sub.configurations.bundled.collect { it.isDirectory() ? it : sub.zipTree(it) }
+        }) {
+            exclude 'META-INF/*.SF', 'META-INF/*.DSA', 'META-INF/*.RSA', 'META-INF/maven/**', 'module-info.class'
+        }
+    }
+
+    sub.tasks.named('processResources', ProcessResources) {
+        inputs.property 'version', sub.version
+        filesMatching('fabric.mod.json') {
+            expand version: sub.version
+        }
+    }
+}

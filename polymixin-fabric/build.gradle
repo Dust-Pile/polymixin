@@ -1,0 +1,15 @@
+description = 'PolyMixin ClasspathSource for Fabric 1.21.1'
+
+dependencies {
+    bundled project(':polymixin-core')
+    bundled "io.github.classgraph:classgraph:${classgraph_version}"
+
+    compileOnly "net.fabricmc:sponge-mixin:${fabric_mixin_version}"
+    compileOnly "net.fabricmc:fabric-loader:${fabric_loader_version}"
+    compileOnly "org.ow2.asm:asm:${asm_version}"
+    compileOnly "org.ow2.asm:asm-tree:${asm_version}"
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.release = 21
+}

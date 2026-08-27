@@ -1,0 +1,12 @@
+modLoader = "lowcodefml"
+loaderVersion = "[47,)"
+license = "MIT"
+issueTrackerURL = "https://github.com/Leclowndu93150/polymixin/issues"
+
+[[mods]]
+modId = "polymixin"
+version = "${file.jarVersion}"
+displayName = "PolyMixin"
+description = '''
+Runtime mixin target expansion driven by a ClassGraph classpath scan.
+'''

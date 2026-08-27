@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "id": "polymixin",
+  "version": "${version}",
+  "name": "PolyMixin",
+  "description": "Runtime mixin target expansion driven by a ClassGraph classpath scan.",
+  "license": "MIT",
+  "environment": "*",
+  "mixins": [
+    "polymixin.mixins.json"
+  ],
+  "depends": {
+    "fabricloader": ">=0.15.0",
+    "java": ">=21"
+  }
+}

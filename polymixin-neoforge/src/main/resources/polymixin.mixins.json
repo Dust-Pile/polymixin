@@ -1,0 +1,9 @@
+{
+  "required": false,
+  "minVersion": "0.8",
+  "package": "dev.polymixin.empty",
+  "plugin": "dev.polymixin.core.PolyMixinPlugin",
+  "mixins": [],
+  "client": [],
+  "server": []
+}
