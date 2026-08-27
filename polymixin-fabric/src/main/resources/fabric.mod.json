@@ -2,6 +2,10 @@
   "schemaVersion": 1,
   "id": "polymixin",
   "version": "${version}",
+  "authors": [
+    "Dusty_Dusty",
+    "Leclowndu93150"
+  ],
   "name": "PolyMixin",
   "description": "Runtime mixin target expansion driven by a ClassGraph classpath scan.",
   "license": "MIT",

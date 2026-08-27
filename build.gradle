@@ -40,31 +40,6 @@ allprojects {
         withSourcesJar()
     }
 
-//    if (project != rootProject) publishing {
-//        publications {
-//            maven(MavenPublication) {
-//                from components.java
-//            }
-//        }
-//
-//        repositories {
-//            def mavenUser = findProperty('mavenUser') ?: System.getenv('MAVEN_USER')
-//            def mavenPass = findProperty('mavenPass') ?: System.getenv('MAVEN_PASS')
-//            if (mavenUser && mavenPass) {
-//                maven {
-//                    name = 'Leclowndu93150'
-//                    url = version.toString().endsWith('-SNAPSHOT')
-//                            ? 'https://maven.leclowndu93150.dev/snapshots'
-//                            : 'https://maven.leclowndu93150.dev/releases'
-//                    credentials {
-//                        username = mavenUser
-//                        password = mavenPass
-//                    }
-//                }
-//            }
-//        }
-//    }
-
     tasks.withType(Test).configureEach {
         useJUnitPlatform()
         testLogging {
