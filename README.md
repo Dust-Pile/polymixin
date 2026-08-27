@@ -45,20 +45,15 @@ newest and drops the rest, so there is nothing to relocate and nothing to coordi
 Add the repository:
 
 ```gradle
-repositories {
-    maven {
-        name = 'Leclowndu93150'
-        url = 'https://maven.leclowndu93150.dev/releases'
-    }
-}
+TBD
 ```
 
 ### Fabric (Loom)
 
 ```gradle
 dependencies {
-    implementation "dev.polymixin:polymixin-fabric:1.0.0"
-    include "dev.polymixin:polymixin-fabric:1.0.0"
+    implementation "dev.polymixin:polymixin-fabric:1.0.1"
+    include "dev.polymixin:polymixin-fabric:1.0.1"
 }
 ```
 
@@ -66,11 +61,11 @@ dependencies {
 
 ```gradle
 dependencies {
-    compileOnly "dev.polymixin:polymixin-neoforge:1.0.0"
+    compileOnly "dev.polymixin:polymixin-neoforge:1.0.1"
     jarJar("dev.polymixin:polymixin-neoforge") {
         version {
             strictly "[1.0.0,2.0)"
-            prefer "1.0.0"
+            prefer "1.0.1"
         }
     }
 }
@@ -82,7 +77,7 @@ dependencies {
 jarJar.enable()
 
 dependencies {
-    compileOnly "dev.polymixin:polymixin-forge:1.0.0"
+    compileOnly "dev.polymixin:polymixin-forge:1.0.1"
     jarJar(group: 'dev.polymixin', name: 'polymixin-forge', version: '[1.0.0,2.0)') {
         jarJar.ranged(it, '[1.0.0,2.0)')
     }
