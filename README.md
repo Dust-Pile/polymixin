@@ -42,47 +42,7 @@ The artifacts are `polymixin-fabric`, `polymixin-neoforge` and `polymixin-forge`
 ClassGraph. Bundle one into your mod with jar-in-jar. If several mods ship it, the loader keeps the
 newest and drops the rest, so there is nothing to relocate and nothing to coordinate.
 
-Add the repository:
-
-```gradle
-TBD
-```
-
-### Fabric (Loom)
-
-```gradle
-dependencies {
-    implementation "dev.polymixin:polymixin-fabric:1.0.1"
-    include "dev.polymixin:polymixin-fabric:1.0.1"
-}
-```
-
-### NeoForge (ModDevGradle)
-
-```gradle
-dependencies {
-    compileOnly "dev.polymixin:polymixin-neoforge:1.0.1"
-    jarJar("dev.polymixin:polymixin-neoforge") {
-        version {
-            strictly "[1.0.0,2.0)"
-            prefer "1.0.1"
-        }
-    }
-}
-```
-
-### Forge (ForgeGradle)
-
-```gradle
-jarJar.enable()
-
-dependencies {
-    compileOnly "dev.polymixin:polymixin-forge:1.0.1"
-    jarJar(group: 'dev.polymixin', name: 'polymixin-forge', version: '[1.0.0,2.0)') {
-        jarJar.ranged(it, '[1.0.0,2.0)')
-    }
-}
-```
+Add the repository and gradle dependency through curse maven. Project page: https://www.curseforge.com/minecraft/mc-mods/polymixin
 
 ### Mod metadata
 
