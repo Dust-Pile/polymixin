@@ -15,6 +15,27 @@ public final class InjectorSelectors {
     private InjectorSelectors() {
     }
 
+    public static boolean anyPresent(ClassNode mixin) {
+        for (MethodNode method : mixin.methods) {
+            if (declaresInjector(method.visibleAnnotations) || declaresInjector(method.invisibleAnnotations)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean declaresInjector(List<AnnotationNode> annotations) {
+        if (annotations == null) {
+            return false;
+        }
+        for (AnnotationNode annotation : annotations) {
+            if (AnnotationNodes.isInjector(annotation.desc) || OVERWRITE_DESC.equals(annotation.desc)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     /**
      * The raw {@code method =} selectors of every injector in a mixin, or {@code null} when any of
      * them is something this cannot read confidently (a wildcard, a quantifier, or an injector with

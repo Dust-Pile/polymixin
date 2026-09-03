@@ -139,6 +139,7 @@ public final class EverySubclass implements DynamicTargetProvider {
 |---|---|
 | `declaredTargets()` | the classes your `@Mixin` listed, already mapped |
 | `subclassesOfDeclaredTargets()` | every subclass, no filtering |
+| `implementersOfDeclaredTargets()` | for interface targets, every implementing class and extending interface |
 | `subclassesThatBypass()` | the default, see below |
 | `subclassesOverriding("foo")` | subclasses that declare `foo` themselves |
 | `subclassesBypassing("foo")` | declare `foo` and do not always call `super.foo()` |
@@ -175,6 +176,39 @@ PolyMixin falls back to targeting every subclass when it cannot read your select
 That happens with wildcards (`method = "get*"`), quantifiers, injectors that only use `target =`, and
 anything injecting into `<init>`, where the super call reasoning does not apply because every
 constructor calls one.
+
+## Interface targets
+
+`@Mixin` can name an interface. PolyMixin then reads its implementers instead of its subclasses:
+
+```java
+@Mixin(Growable.class)
+@DynamicTargets
+public interface GrowableMixin {
+
+    @Inject(method = "grow", at = @At("HEAD"), cancellable = true, require = 1)
+    default void yourmod$grow(CallbackInfoReturnable<String> cir) {
+        // runs on every class implementing Growable that declares grow() itself
+    }
+}
+```
+
+The mixin has to be an interface, because Mixin rejects a class mixin whose target is one. It also
+needs `"compatibilityLevel": "JAVA_8"` or higher in your `mixins.json`. Because the source is an
+interface and the generated targets are classes, the copies are emitted as abstract class mixins.
+
+Two things work differently from a class target:
+
+- **Mixin cannot apply an injector to an interface**, so the declared target itself is never patched.
+  PolyMixin detaches the mixin from it rather than leaving a failed apply in the log. An implementer
+  that inherits a default method without declaring an override therefore cannot be patched at all -
+  there is no method on it for the injector to match.
+- **Delegating to `Growable.super.grow()` is not a reason to skip an implementer**, since the
+  interface default it delegates to is unpatched. Every implementer that declares the method gets a
+  copy, and the double-fire caveat above does not apply.
+
+Accessor and invoker interface mixins are untouched: implementers already inherit them, so nothing
+is generated.
 
 ## Behaviour worth knowing
 

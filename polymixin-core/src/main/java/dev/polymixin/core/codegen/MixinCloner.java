@@ -7,28 +7,36 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 import org.objectweb.asm.ClassWriter;
+import org.objectweb.asm.Handle;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.commons.ClassRemapper;
 import org.objectweb.asm.commons.SimpleRemapper;
+import org.objectweb.asm.tree.AbstractInsnNode;
 import org.objectweb.asm.tree.AnnotationNode;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.FieldNode;
 import org.objectweb.asm.tree.InnerClassNode;
+import org.objectweb.asm.tree.InvokeDynamicInsnNode;
+import org.objectweb.asm.tree.MethodInsnNode;
 import org.objectweb.asm.tree.MethodNode;
 
 public final class MixinCloner {
 
     private static final String MIXIN_DESC = "Lorg/spongepowered/asm/mixin/Mixin;";
     private static final String SHADOW_DESC = "Lorg/spongepowered/asm/mixin/Shadow;";
+    private static final String ACCESSOR_DESC = "Lorg/spongepowered/asm/mixin/gen/Accessor;";
+    private static final String INVOKER_DESC = "Lorg/spongepowered/asm/mixin/gen/Invoker;";
 
     private MixinCloner() {
     }
 
     public static CloneResult clone(ClassNode source, String generatedRef, String targetRef,
-                                    boolean relaxRequirements, TargetMembers members) {
-        if ((source.access & Opcodes.ACC_INTERFACE) != 0) {
-            return CloneResult.skipped("interface mixin, already inherited by every subclass");
+                                    boolean targetIsInterface, boolean relaxRequirements,
+                                    TargetMembers members) {
+        boolean sourceIsInterface = (source.access & Opcodes.ACC_INTERFACE) != 0;
+        if (sourceIsInterface && !targetIsInterface && isAccessorOnly(source)) {
+            return CloneResult.skipped("accessor mixin, already inherited by every subclass");
         }
 
         String originalRef = source.name;
@@ -43,6 +51,9 @@ public final class MixinCloner {
         }
 
         retargetOrphanedInnerClasses(out, originalRef, generatedRef);
+        if (sourceIsInterface && !targetIsInterface) {
+            convertToClass(out);
+        }
         rewriteMixinAnnotation(out, targetRef);
         if (relaxRequirements) {
             relaxInjectors(out);
@@ -64,6 +75,69 @@ public final class MixinCloner {
             }
         }
         return inner;
+    }
+
+    private static boolean isAccessorOnly(ClassNode source) {
+        for (MethodNode method : source.methods) {
+            if ((method.access & Opcodes.ACC_SYNTHETIC) != 0) {
+                continue;
+            }
+            if (AnnotationNodes.find(method.visibleAnnotations, ACCESSOR_DESC) == null
+                    && AnnotationNodes.find(method.visibleAnnotations, INVOKER_DESC) == null) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * Turns an interface mixin into an abstract class mixin so it can target a class implementing
+     * the declared interface: Mixin rejects an interface mixin whose target is not an interface.
+     * Self-calls have to lose their interface flag with it, or the target ends up with an
+     * {@code invokeinterface} against a class.
+     */
+    private static void convertToClass(ClassNode out) {
+        out.access &= ~Opcodes.ACC_INTERFACE;
+        out.superName = "java/lang/Object";
+        for (MethodNode method : out.methods) {
+            if (method.instructions == null) {
+                continue;
+            }
+            for (AbstractInsnNode insn : method.instructions) {
+                if (insn instanceof MethodInsnNode) {
+                    retargetSelfCall((MethodInsnNode) insn, out.name);
+                } else if (insn instanceof InvokeDynamicInsnNode) {
+                    retargetSelfHandles((InvokeDynamicInsnNode) insn, out.name);
+                }
+            }
+        }
+    }
+
+    private static void retargetSelfCall(MethodInsnNode call, String selfRef) {
+        if (!call.owner.equals(selfRef)) {
+            return;
+        }
+        call.itf = false;
+        if (call.getOpcode() == Opcodes.INVOKEINTERFACE) {
+            call.setOpcode(Opcodes.INVOKEVIRTUAL);
+        }
+    }
+
+    private static void retargetSelfHandles(InvokeDynamicInsnNode indy, String selfRef) {
+        if (indy.bsmArgs == null) {
+            return;
+        }
+        for (int i = 0; i < indy.bsmArgs.length; i++) {
+            if (!(indy.bsmArgs[i] instanceof Handle)) {
+                continue;
+            }
+            Handle handle = (Handle) indy.bsmArgs[i];
+            if (!handle.getOwner().equals(selfRef) || !handle.isInterface()) {
+                continue;
+            }
+            int tag = handle.getTag() == Opcodes.H_INVOKEINTERFACE ? Opcodes.H_INVOKEVIRTUAL : handle.getTag();
+            indy.bsmArgs[i] = new Handle(tag, handle.getOwner(), handle.getName(), handle.getDesc(), false);
+        }
     }
 
     private static String stripUnresolvableShadows(ClassNode out, TargetMembers members, List<String> stripped) {

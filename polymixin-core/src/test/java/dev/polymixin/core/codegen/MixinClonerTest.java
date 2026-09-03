@@ -5,12 +5,14 @@ import java.util.List;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
 import org.objectweb.asm.ClassReader;
+import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.AnnotationNode;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.MethodNode;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -37,7 +39,7 @@ class MixinClonerTest {
         ClassNode source = read("dev.polymixin.testmixins.MixinBaseBlock");
         String generatedRef = source.name + "_pm_CropBlockA_deadbeef";
 
-        byte[] bytes = MixinCloner.clone(source, generatedRef, "dev/polymixin/testgame/CropBlockA", true, null).bytes();
+        byte[] bytes = MixinCloner.clone(source, generatedRef, "dev/polymixin/testgame/CropBlockA", false, true, null).bytes();
         ClassNode generated = readBytes(bytes);
 
         assertEquals(generatedRef, generated.name);
@@ -62,7 +64,7 @@ class MixinClonerTest {
     @Test
     void leavesTheOriginalStrict() throws Exception {
         ClassNode source = read("dev.polymixin.testmixins.MixinBaseBlock");
-        MixinCloner.clone(source, source.name + "_pm_x", "dev/polymixin/testgame/CropBlockA", true, null);
+        MixinCloner.clone(source, source.name + "_pm_x", "dev/polymixin/testgame/CropBlockA", false, true, null);
 
         ClassNode reread = read("dev.polymixin.testmixins.MixinBaseBlock");
         MethodNode injector = reread.methods.stream()
@@ -76,7 +78,7 @@ class MixinClonerTest {
     @Test
     void keepsRequirementsWhenRelaxationDisabled() throws Exception {
         ClassNode source = read("dev.polymixin.testmixins.MixinBaseBlock");
-        byte[] bytes = MixinCloner.clone(source, source.name + "_pm_y", "dev/polymixin/testgame/CropBlockB", false, null).bytes();
+        byte[] bytes = MixinCloner.clone(source, source.name + "_pm_y", "dev/polymixin/testgame/CropBlockB", false, false, null).bytes();
         ClassNode generated = readBytes(bytes);
 
         MethodNode injector = generated.methods.stream()
@@ -91,7 +93,7 @@ class MixinClonerTest {
     void remapsSelfReferences() throws Exception {
         ClassNode source = read("dev.polymixin.testmixins.MixinBaseBlock");
         String generatedRef = source.name + "_pm_self";
-        byte[] bytes = MixinCloner.clone(source, generatedRef, "dev/polymixin/testgame/CropBlockA", true, null).bytes();
+        byte[] bytes = MixinCloner.clone(source, generatedRef, "dev/polymixin/testgame/CropBlockA", false, true, null).bytes();
 
         String text = new String(bytes, java.nio.charset.StandardCharsets.ISO_8859_1);
         assertTrue(text.contains(generatedRef), "generated class must reference its own new name");
@@ -134,20 +136,42 @@ class MixinClonerTest {
     }
 
     @Test
-    void skipsInterfaceMixinsBecauseSubclassesAlreadyInheritThem() throws Exception {
+    void skipsAccessorInterfaceMixinsBecauseSubclassesAlreadyInheritThem() throws Exception {
         ClassNode source = read("dev.polymixin.testmixins.MixinHardnessAccessor");
         CloneResult result = MixinCloner.clone(source, source.name + "_pm_a", "dev/polymixin/testgame/CropBlockA",
-                true, null);
+                false, true, null);
 
         assertTrue(result.isSkipped());
-        assertTrue(result.skipReason().contains("interface mixin"), result.skipReason());
+        assertTrue(result.skipReason().contains("accessor mixin"), result.skipReason());
+    }
+
+    @Test
+    void turnsAnInterfaceMixinIntoAClassMixinWhenTheTargetIsAClass() throws Exception {
+        ClassNode source = read("dev.polymixin.testmixins3.MixinGrowable");
+        CloneResult result = MixinCloner.clone(source, source.name + "_pm_e", "dev/polymixin/testgame/WildGrowable",
+                false, true, null);
+
+        assertFalse(result.isSkipped(), String.valueOf(result.skipReason()));
+        ClassNode generated = readBytes(result.bytes());
+        assertEquals(0, generated.access & Opcodes.ACC_INTERFACE);
+        assertEquals("java/lang/Object", generated.superName);
+    }
+
+    @Test
+    void keepsAnInterfaceMixinAnInterfaceWhenTheTargetIsOne() throws Exception {
+        ClassNode source = read("dev.polymixin.testmixins3.MixinGrowable");
+        CloneResult result = MixinCloner.clone(source, source.name + "_pm_f", "dev/polymixin/testgame/Growable",
+                true, true, null);
+
+        assertFalse(result.isSkipped(), String.valueOf(result.skipReason()));
+        assertNotEquals(0, readBytes(result.bytes()).access & Opcodes.ACC_INTERFACE);
     }
 
     @Test
     void stripsShadowsTheTargetInheritsRatherThanDeclares() throws Exception {
         ClassNode source = read("dev.polymixin.testmixins.MixinShadowBlock");
         CloneResult result = MixinCloner.clone(source, source.name + "_pm_b", "dev/polymixin/testgame/CropBlockA",
-                true, new FakeMembers(Set.of(), Set.of("computeHardness()I", "hardnessI")));
+                false, true, new FakeMembers(Set.of(), Set.of("computeHardness()I", "hardnessI")));
 
         assertFalse(result.isSkipped(), String.valueOf(result.skipReason()));
         assertEquals(Set.of("field hardness", "method computeHardness"), Set.copyOf(result.strippedShadows()));
@@ -161,7 +185,7 @@ class MixinClonerTest {
     void keepsShadowsTheTargetDeclares() throws Exception {
         ClassNode source = read("dev.polymixin.testmixins.MixinShadowBlock");
         CloneResult result = MixinCloner.clone(source, source.name + "_pm_c", "dev/polymixin/testgame/CropBlockA",
-                true, new FakeMembers(Set.of("computeHardness()I", "hardnessI"), Set.of()));
+                false, true, new FakeMembers(Set.of("computeHardness()I", "hardnessI"), Set.of()));
 
         assertFalse(result.isSkipped());
         assertEquals(List.of(), result.strippedShadows());
@@ -173,7 +197,7 @@ class MixinClonerTest {
     void skipsTargetsThatCannotReachAShadowedMember() throws Exception {
         ClassNode source = read("dev.polymixin.testmixins.MixinShadowBlock");
         CloneResult result = MixinCloner.clone(source, source.name + "_pm_d", "dev/polymixin/testgame/CropBlockA",
-                true, new FakeMembers(Set.of(), Set.of()));
+                false, true, new FakeMembers(Set.of(), Set.of()));
 
         assertTrue(result.isSkipped());
         assertTrue(result.skipReason().contains("@Shadow"), result.skipReason());

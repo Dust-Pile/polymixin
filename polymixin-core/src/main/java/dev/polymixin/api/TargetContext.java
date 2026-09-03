@@ -4,6 +4,7 @@ import io.github.classgraph.ClassInfo;
 import io.github.classgraph.ClassInfoList;
 import io.github.classgraph.ScanResult;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -42,19 +43,56 @@ public final class TargetContext {
         return this.scanResult;
     }
 
+    /**
+     * Every type below a declared target: subclasses when the target is a class, implementers and
+     * extending interfaces when it is an interface.
+     */
     public Set<ClassInfo> subclassesOfDeclaredTargets() {
+        Set<ClassInfo> out = new LinkedHashSet<>(this.subclassesOfDeclaredClasses());
+        out.addAll(this.implementersOfDeclaredTargets());
+        return out;
+    }
+
+    /**
+     * The types below the declared targets that are interfaces: the classes implementing them and
+     * the interfaces extending them. Declared targets that are classes contribute nothing.
+     */
+    public Set<ClassInfo> implementersOfDeclaredTargets() {
         Set<ClassInfo> out = new LinkedHashSet<>();
-        for (String declared : this.declaredTargets) {
-            ClassInfo base = this.scanResult.getClassInfo(declared);
-            if (base == null) {
-                continue;
-            }
-            ClassInfoList subclasses = base.getSubclasses();
-            for (ClassInfo sub : subclasses) {
-                out.add(sub);
+        for (ClassInfo base : this.declaredTargetInfos()) {
+            if (base.isInterface()) {
+                addAll(out, base.getSubinterfaces());
+                addAll(out, base.getClassesImplementing());
             }
         }
         return out;
+    }
+
+    private Set<ClassInfo> subclassesOfDeclaredClasses() {
+        Set<ClassInfo> out = new LinkedHashSet<>();
+        for (ClassInfo base : this.declaredTargetInfos()) {
+            if (!base.isInterface()) {
+                addAll(out, base.getSubclasses());
+            }
+        }
+        return out;
+    }
+
+    private List<ClassInfo> declaredTargetInfos() {
+        List<ClassInfo> out = new ArrayList<>();
+        for (String declared : this.declaredTargets) {
+            ClassInfo base = this.scanResult.getClassInfo(declared);
+            if (base != null) {
+                out.add(base);
+            }
+        }
+        return out;
+    }
+
+    private static void addAll(Set<ClassInfo> out, ClassInfoList list) {
+        for (ClassInfo info : list) {
+            out.add(info);
+        }
     }
 
     /**
@@ -132,21 +170,47 @@ public final class TargetContext {
      * reasoning does not hold.
      */
     public Set<ClassInfo> subclassesThatBypass() {
-        Set<ClassInfo> all = this.subclassesOfDeclaredTargets();
         if (this.inspector.mixinTargetsConstructor()) {
-            return all;
+            return this.subclassesOfDeclaredTargets();
         }
         Set<String> injected = this.inspector.injectedMethodNames();
-        if (injected == null || injected.isEmpty()) {
-            Set<ClassInfo> out = new LinkedHashSet<>();
-            for (ClassInfo sub : all) {
-                if (this.inspector.bypassesAnyOverride(sub.getName())) {
-                    out.add(sub);
-                }
-            }
-            return out;
+        if (injected != null && injected.isEmpty()) {
+            injected = null;
         }
-        return this.subclassesBypassing(injected.toArray(new String[0]));
+
+        Set<ClassInfo> out = new LinkedHashSet<>();
+        for (ClassInfo sub : this.implementersOfDeclaredTargets()) {
+            if (injected == null || this.declaresAny(sub, injected)) {
+                out.add(sub);
+            }
+        }
+        for (ClassInfo sub : this.subclassesOfDeclaredClasses()) {
+            boolean keep = injected == null
+                    ? this.inspector.bypassesAnyOverride(sub.getName())
+                    : this.bypassesAny(sub, injected);
+            if (keep) {
+                out.add(sub);
+            }
+        }
+        return out;
+    }
+
+    private boolean declaresAny(ClassInfo target, Set<String> methodNames) {
+        for (String name : methodNames) {
+            if (this.declaresMethod(target, name)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean bypassesAny(ClassInfo target, Set<String> methodNames) {
+        for (String name : methodNames) {
+            if (this.declaresMethod(target, name) && !this.delegatesToSuper(target, name)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     @Override

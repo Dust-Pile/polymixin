@@ -360,4 +360,38 @@ class EndToEndTest {
         assertEquals(3, accessor.getMethod("polymixin$hardness").invoke(instance));
         assertEquals(3, accessor.getMethod("polymixin$computeHardness").invoke(instance));
     }
+
+    @Test
+    @Order(19)
+    void appliesInterfaceMixinsToImplementersThatDeclareTheMethod() throws Exception {
+        transformAndLoad("dev.polymixin.testgame.Growable");
+
+        Class<?> wild = transformAndLoad("dev.polymixin.testgame.WildGrowable");
+        assertEquals("wild!", invoke(wild, "grow"));
+
+        Class<?> tended = transformAndLoad("dev.polymixin.testgame.TendedGrowable");
+        assertEquals("grow+tended!", invoke(tended, "grow"),
+                "delegating to the interface default is no protection: Mixin cannot patch the default,"
+                        + " so the implementer needs its own copy");
+
+        Class<?> rooted = transformAndLoad("dev.polymixin.testgame.RootedGrowable");
+        assertEquals("grow", invoke(rooted, "grow"),
+                "an implementer that declares no override has nothing an injector can match");
+    }
+
+    @Test
+    @Order(20)
+    void generatesInterfaceMixinCopiesForEveryImplementerDeclaringTheMethod() throws Exception {
+        transformAndLoad("dev.polymixin.testgame.Growable");
+
+        Set<String> targets = new LinkedHashSet<>();
+        for (GeneratedMixin generated : GeneratedRegistry.all()) {
+            if (generated.originalName().endsWith("MixinGrowable")) {
+                targets.add(generated.targetName());
+            }
+        }
+
+        assertEquals(Set.of("dev.polymixin.testgame.TendedGrowable", "dev.polymixin.testgame.WildGrowable"),
+                targets, targets.toString());
+    }
 }
