@@ -1,9 +1,11 @@
 {
   "required": false,
   "minVersion": "0.8",
+  "compatibilityLevel": "JAVA_17",
   "package": "dev.polymixin.testmixins3",
   "mixins": [
     "MixinAnnotationDriven",
+    "MixinGrowable",
     "MixinSuperChain"
   ]
 }

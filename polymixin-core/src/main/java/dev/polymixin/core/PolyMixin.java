@@ -39,6 +39,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.tree.AnnotationNode;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.MethodNode;
@@ -269,6 +270,10 @@ public final class PolyMixin {
             mixinPackage = mixinPackage + ".";
         }
 
+        boolean sourceIsInterface = (source.access & Opcodes.ACC_INTERFACE) != 0;
+        if (sourceIsInterface && InjectorSelectors.anyPresent(source)) {
+            detachFromDeclaredInterfaces(info, config, declared, scan);
+        }
         IClassTracker tracker = MixinService.getService().getClassTracker();
         Set<String> seen = new LinkedHashSet<>(declared);
         List<GeneratedMixin> generated = pending.computeIfAbsent(config, k -> new ArrayList<>());
@@ -279,7 +284,7 @@ public final class PolyMixin {
                 stats.skip("duplicate/declared");
                 continue;
             }
-            if (target.isInterface() || target.isAnnotation()) {
+            if (target.isAnnotation() || (target.isInterface() && !sourceIsInterface)) {
                 stats.skip("not a class");
                 continue;
             }
@@ -305,7 +310,7 @@ public final class PolyMixin {
             CloneResult result;
             try {
                 result = MixinCloner.clone(source, info.getClassRef() + suffix, targetName.replace('.', '/'),
-                        candidate.relaxInjectionRequirements,
+                        target.isInterface(), candidate.relaxInjectionRequirements,
                         MixinClassInfoMembers.of(targetName.replace('.', '/')));
             } catch (Throwable th) {
                 Log.error("codegen failed for {} -> {}: {}", info.getClassName(), targetName, th);
@@ -334,6 +339,33 @@ public final class PolyMixin {
             Log.warn("{} declares inner classes {}; generated copies reuse the originals, which Mixin"
                             + " conforms per target. Verify behaviour if these are non-static or capture state.",
                     info.getClassName(), inner);
+        }
+    }
+
+    /**
+     * Mixin refuses to apply an injector that lives in an interface mixin, so the mixin can never
+     * patch the interface it declares, and leaving it attached only produces a failed apply. The
+     * generated copies carry the injectors onto the implementers instead.
+     */
+    private static void detachFromDeclaredInterfaces(IMixinInfo info, IMixinConfig config,
+                                                     List<String> declared, ScanResult scan) {
+        for (String target : declared) {
+            ClassInfo targetInfo = scan.getClassInfo(target);
+            if (targetInfo == null || !targetInfo.isInterface()) {
+                continue;
+            }
+            try {
+                if (!MixinInternals.detachTarget(config, info, target)) {
+                    continue;
+                }
+            } catch (Throwable th) {
+                Log.warn("could not detach {} from the interface {}; Mixin will log a failed apply for it: {}",
+                        info.getClassName(), target, th);
+                continue;
+            }
+            Log.info("{} declares injectors and targets the interface {}; Mixin cannot apply those to an"
+                            + " interface, so only the generated copies on its implementers will run",
+                    info.getClassName(), target);
         }
     }
 
