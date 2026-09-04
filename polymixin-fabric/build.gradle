@@ -8,6 +8,19 @@ dependencies {
     compileOnly "net.fabricmc:fabric-loader:${fabric_loader_version}"
     compileOnly "org.ow2.asm:asm:${asm_version}"
     compileOnly "org.ow2.asm:asm-tree:${asm_version}"
+    testImplementation "net.fabricmc:sponge-mixin:${fabric_mixin_version}"
+    testImplementation "org.ow2.asm:asm:${asm_version}"
+    testImplementation "org.ow2.asm:asm-tree:${asm_version}"
+    testImplementation "org.ow2.asm:asm-commons:${asm_version}"
+    testImplementation "org.ow2.asm:asm-util:${asm_version}"
+    testImplementation "org.ow2.asm:asm-analysis:${asm_version}"
+    testImplementation 'io.github.llamalad7:mixinextras-fabric:0.4.1'
+    testImplementation 'com.google.guava:guava:32.1.2-jre'
+    testImplementation 'com.google.code.gson:gson:2.10.1'
+    testImplementation "org.junit.jupiter:junit-jupiter:${junit_version}"
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    testImplementation(project(':polymixin-core'))
+    testImplementation(project(':polymixin-test-fixtures'))
 }
 
 tasks.withType(JavaCompile).configureEach {

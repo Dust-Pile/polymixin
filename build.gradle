@@ -40,6 +40,8 @@ allprojects {
         withSourcesJar()
     }
 
+    if (name == 'polymixin-test-fixtures') return
+
     tasks.withType(Test).configureEach {
         useJUnitPlatform()
         testLogging {
@@ -52,7 +54,7 @@ allprojects {
 // The platform artifacts are self-contained mod jars: core + platform + ClassGraph.
 // ClassGraph is intentionally NOT relocated - see RESEARCH.md section 6.4.
 subprojects { sub ->
-    if (sub.name == 'polymixin-core') return
+    if (sub.name == 'polymixin-core' || sub.name == 'polymixin-test-fixtures') return
 
     sub.configurations {
         bundled

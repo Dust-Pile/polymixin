@@ -2,12 +2,11 @@ description = 'PolyMixin core - Mixin + ClassGraph only, no Minecraft'
 
 dependencies {
     api "io.github.classgraph:classgraph:${classgraph_version}"
-
     compileOnly "org.spongepowered:mixin:${forge_mixin_version}"
     compileOnly "org.ow2.asm:asm:${asm_version}"
     compileOnly "org.ow2.asm:asm-tree:${asm_version}"
     compileOnly "org.ow2.asm:asm-commons:${asm_version}"
-
+    testImplementation(project(':polymixin-test-fixtures'))
     testImplementation "org.spongepowered:mixin:${forge_mixin_version}"
     testImplementation "org.ow2.asm:asm:${asm_version}"
     testImplementation "org.ow2.asm:asm-tree:${asm_version}"

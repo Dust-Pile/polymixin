@@ -13,6 +13,7 @@
             <option value="$PROJECT_DIR$/polymixin-fabric" />
             <option value="$PROJECT_DIR$/polymixin-forge" />
             <option value="$PROJECT_DIR$/polymixin-neoforge" />
+            <option value="$PROJECT_DIR$/polymixin-test-fixtures" />
           </set>
         </option>
       </GradleProjectSettings>

@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="ProjectModuleManager">
+    <modules>
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/polymixin-core/polymixin.polymixin-core.main.iml" filepath="$PROJECT_DIR$/.idea/modules/polymixin-core/polymixin.polymixin-core.main.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/polymixin-core/polymixin.polymixin-core.test.iml" filepath="$PROJECT_DIR$/.idea/modules/polymixin-core/polymixin.polymixin-core.test.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/polymixin-fabric/polymixin.polymixin-fabric.main.iml" filepath="$PROJECT_DIR$/.idea/modules/polymixin-fabric/polymixin.polymixin-fabric.main.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/polymixin-fabric/polymixin.polymixin-fabric.test.iml" filepath="$PROJECT_DIR$/.idea/modules/polymixin-fabric/polymixin.polymixin-fabric.test.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/polymixin-forge/polymixin.polymixin-forge.main.iml" filepath="$PROJECT_DIR$/.idea/modules/polymixin-forge/polymixin.polymixin-forge.main.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/polymixin-forge/polymixin.polymixin-forge.test.iml" filepath="$PROJECT_DIR$/.idea/modules/polymixin-forge/polymixin.polymixin-forge.test.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/polymixin-neoforge/polymixin.polymixin-neoforge.main.iml" filepath="$PROJECT_DIR$/.idea/modules/polymixin-neoforge/polymixin.polymixin-neoforge.main.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/polymixin-test-fixtures/polymixin.polymixin-test-fixtures.main.iml" filepath="$PROJECT_DIR$/.idea/modules/polymixin-test-fixtures/polymixin.polymixin-test-fixtures.main.iml" />
+    </modules>
+  </component>
+</project>

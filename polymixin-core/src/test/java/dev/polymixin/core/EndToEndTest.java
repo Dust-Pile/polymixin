@@ -1,123 +1,48 @@
 package dev.polymixin.core;
 
-import dev.polymixin.core.platform.ClasspathSource;
-import dev.polymixin.core.platform.Platform;
 import dev.polymixin.core.registry.GeneratedMixin;
 import dev.polymixin.core.registry.GeneratedRegistry;
 import dev.polymixin.core.scan.ScanCache;
-import dev.polymixin.testenv.TestMixinService;
 import dev.polymixin.testgame.BaseBlock;
 import dev.polymixin.testplugin.TestPlugin;
+import org.junit.jupiter.api.*;
+import org.spongepowered.asm.mixin.Mixins;
+
 import java.lang.reflect.Field;
-import java.lang.reflect.Method;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
-import org.junit.jupiter.api.MethodOrderer;
-import org.junit.jupiter.api.Order;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInstance;
-import org.junit.jupiter.api.TestMethodOrder;
-import org.spongepowered.asm.launch.MixinBootstrap;
-import org.spongepowered.asm.mixin.Mixins;
-import org.spongepowered.asm.mixin.transformer.IMixinTransformer;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import static org.junit.jupiter.api.Assertions.*;
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 class EndToEndTest {
+    private static EndToEndTestHelper helper;
 
-    private static final Map<String, Class<?>> LOADED = new HashMap<>();
-
-    private static IMixinTransformer transformer;
-    private static GameClassLoader loader;
-
-    private static final class GameClassLoader extends ClassLoader {
-
-        GameClassLoader() {
-            super(EndToEndTest.class.getClassLoader());
-        }
-
-        Class<?> define(String name, byte[] bytes) {
-            return defineClass(name, bytes, 0, bytes.length);
-        }
-    }
-
-    private static Path testClassesRoot() throws Exception {
-        return Paths.get(BaseBlock.class.getProtectionDomain().getCodeSource().getLocation().toURI());
-    }
-
-    private static synchronized void bootstrap() throws Exception {
-        if (transformer != null) {
-            return;
-        }
-        Path root = testClassesRoot();
-        Platform.override(new ClasspathSource() {
-            @Override
-            public String platformName() {
-                return "unit-test";
-            }
-
-            @Override
-            public boolean isAvailable() {
-                return true;
-            }
-
-            @Override
-            public List<Path> classpathRoots() {
-                return List.of(root);
-            }
+    @BeforeAll
+    void setupE2EHelper() {
+        helper = new EndToEndTestHelper(() -> BaseBlock.class, () -> {
+            Mixins.addConfiguration("polymixin-lib.mixins.json");
+            Mixins.addConfiguration("polymixin-test.mixins.json");
+            Mixins.addConfiguration("polymixin-test2.mixins.json");
+            Mixins.addConfiguration("polymixin-test3.mixins.json");
         });
-
-        MixinBootstrap.init();
-        transformer = TestMixinService.instance().transformerFactory().createTransformer();
-        TestMixinService.bootstrapMixinExtras();
-
-        Mixins.addConfiguration("polymixin-lib.mixins.json");
-        Mixins.addConfiguration("polymixin-test.mixins.json");
-        Mixins.addConfiguration("polymixin-test2.mixins.json");
-        Mixins.addConfiguration("polymixin-test3.mixins.json");
-        loader = new GameClassLoader();
-    }
-
-    private static Class<?> transformAndLoad(String name) throws Exception {
-        bootstrap();
-        Class<?> cached = LOADED.get(name);
-        if (cached != null) {
-            return cached;
-        }
-        byte[] original = TestMixinService.readBytes(name);
-        byte[] transformed = transformer.transformClassBytes(name, name, original);
-        Class<?> defined = loader.define(name, transformed);
-        LOADED.put(name, defined);
-        return defined;
-    }
-
-    private static Object invoke(Class<?> type, String method) throws Exception {
-        Object instance = type.getDeclaredConstructor().newInstance();
-        Method target = type.getMethod(method);
-        return target.invoke(instance);
     }
 
     @Test
     @Order(1)
     void appliesToDeclaredTarget() throws Exception {
-        Class<?> base = transformAndLoad("dev.polymixin.testgame.BaseBlock");
-        assertEquals(Boolean.TRUE, invoke(base, "canSurvive"));
-        assertEquals("patched", invoke(base, "describe"));
+        Class<?> base = helper.transformAndLoad("dev.polymixin.testgame.BaseBlock");
+        assertEquals(Boolean.TRUE, helper.invoke(base, "canSurvive"));
+        assertEquals("patched", helper.invoke(base, "describe"));
     }
 
     @Test
     @Order(2)
     void generatedMixinsExistForEverySubclass() throws Exception {
-        transformAndLoad("dev.polymixin.testgame.BaseBlock");
+        helper.transformAndLoad("dev.polymixin.testgame.BaseBlock");
 
         List<String> targets = new ArrayList<>();
         for (GeneratedMixin generated : GeneratedRegistry.all()) {
@@ -134,32 +59,32 @@ class EndToEndTest {
     @Test
     @Order(3)
     void appliesToOverridingSubclasses() throws Exception {
-        Class<?> cropA = transformAndLoad("dev.polymixin.testgame.CropBlockA");
-        assertEquals(Boolean.TRUE, invoke(cropA, "canSurvive"));
-        assertEquals("patched", invoke(cropA, "describe"));
+        Class<?> cropA = helper.transformAndLoad("dev.polymixin.testgame.CropBlockA");
+        assertEquals(Boolean.TRUE, helper.invoke(cropA, "canSurvive"));
+        assertEquals("patched", helper.invoke(cropA, "describe"));
 
-        Class<?> cropB = transformAndLoad("dev.polymixin.testgame.CropBlockB");
-        assertEquals(Boolean.TRUE, invoke(cropB, "canSurvive"));
+        Class<?> cropB = helper.transformAndLoad("dev.polymixin.testgame.CropBlockB");
+        assertEquals(Boolean.TRUE, helper.invoke(cropB, "canSurvive"));
     }
 
     @Test
     @Order(4)
     void toleratesSubclassesWithoutTheInjectedMethod() throws Exception {
-        Class<?> inheriting = transformAndLoad("dev.polymixin.testgame.InheritingBlock");
-        assertEquals(7, invoke(inheriting, "unrelated"));
+        Class<?> inheriting = helper.transformAndLoad("dev.polymixin.testgame.InheritingBlock");
+        assertEquals(7, helper.invoke(inheriting, "unrelated"));
     }
 
     @Test
     @Order(5)
     void leavesUnrelatedClassesAlone() throws Exception {
-        Class<?> unrelated = transformAndLoad("dev.polymixin.testgame.UnrelatedBlock");
-        assertEquals(Boolean.FALSE, invoke(unrelated, "canSurvive"));
+        Class<?> unrelated = helper.transformAndLoad("dev.polymixin.testgame.UnrelatedBlock");
+        assertEquals(Boolean.FALSE, helper.invoke(unrelated, "canSurvive"));
     }
 
     @Test
     @Order(6)
     void delegatesPluginCallbacksToTheConsumerPlugin() throws Exception {
-        transformAndLoad("dev.polymixin.testgame.CropBlockA");
+        helper.transformAndLoad("dev.polymixin.testgame.CropBlockA");
         assertTrue(TestPlugin.POST_APPLIED.stream().anyMatch(s -> s.contains("_pm_CropBlockA_")),
                 TestPlugin.POST_APPLIED.toString());
     }
@@ -167,54 +92,54 @@ class EndToEndTest {
     @Test
     @Order(7)
     void resolvesShadowedMembersInheritedByTheSubclass() throws Exception {
-        Class<?> base = transformAndLoad("dev.polymixin.testgame.BaseBlock");
-        assertEquals(106, invoke(base, "effectiveHardness"));
+        Class<?> base = helper.transformAndLoad("dev.polymixin.testgame.BaseBlock");
+        assertEquals(106, helper.invoke(base, "effectiveHardness"));
 
-        Class<?> cropA = transformAndLoad("dev.polymixin.testgame.CropBlockA");
-        assertEquals(106, invoke(cropA, "effectiveHardness"));
+        Class<?> cropA = helper.transformAndLoad("dev.polymixin.testgame.CropBlockA");
+        assertEquals(106, helper.invoke(cropA, "effectiveHardness"));
 
-        Class<?> cropB = transformAndLoad("dev.polymixin.testgame.CropBlockB");
-        assertEquals(106, invoke(cropB, "effectiveHardness"));
+        Class<?> cropB = helper.transformAndLoad("dev.polymixin.testgame.CropBlockB");
+        assertEquals(106, helper.invoke(cropB, "effectiveHardness"));
     }
 
     @Test
     @Order(8)
     void appliesMixinExtrasInjectorsToSubclasses() throws Exception {
-        Class<?> base = transformAndLoad("dev.polymixin.testgame.BaseBlock");
-        assertEquals("L+extras", invoke(base, "label"));
+        Class<?> base = helper.transformAndLoad("dev.polymixin.testgame.BaseBlock");
+        assertEquals("L+extras", helper.invoke(base, "label"));
 
-        Class<?> cropA = transformAndLoad("dev.polymixin.testgame.CropBlockA");
-        assertEquals("LA+extras", invoke(cropA, "label"));
+        Class<?> cropA = helper.transformAndLoad("dev.polymixin.testgame.CropBlockA");
+        assertEquals("LA+extras", helper.invoke(cropA, "label"));
     }
 
     @Test
     @Order(9)
     void appliesMultiTargetMixinsToSubclassesOfEveryDeclaredTarget() throws Exception {
-        Class<?> base = transformAndLoad("dev.polymixin.testgame.BaseBlock");
-        assertEquals("T[multi]", invoke(base, "tag"));
+        Class<?> base = helper.transformAndLoad("dev.polymixin.testgame.BaseBlock");
+        assertEquals("T[multi]", helper.invoke(base, "tag"));
 
-        Class<?> unrelated = transformAndLoad("dev.polymixin.testgame.UnrelatedBlock");
-        assertEquals("U[multi]", invoke(unrelated, "tag"));
+        Class<?> unrelated = helper.transformAndLoad("dev.polymixin.testgame.UnrelatedBlock");
+        assertEquals("U[multi]", helper.invoke(unrelated, "tag"));
 
-        Class<?> cropA = transformAndLoad("dev.polymixin.testgame.CropBlockA");
-        assertEquals("TA[multi]", invoke(cropA, "tag"));
+        Class<?> cropA = helper.transformAndLoad("dev.polymixin.testgame.CropBlockA");
+        assertEquals("TA[multi]", helper.invoke(cropA, "tag"));
 
-        Class<?> cropB = transformAndLoad("dev.polymixin.testgame.CropBlockB");
-        assertEquals("TB[multi]", invoke(cropB, "tag"));
+        Class<?> cropB = helper.transformAndLoad("dev.polymixin.testgame.CropBlockB");
+        assertEquals("TB[multi]", helper.invoke(cropB, "tag"));
     }
 
     @Test
     @Order(14)
     void doesNotDoubleFireWhenASubclassCallsSuper() throws Exception {
-        Class<?> base = transformAndLoad("dev.polymixin.testgame.BaseBlock");
-        assertEquals("base!", invoke(base, "chain"));
+        Class<?> base = helper.transformAndLoad("dev.polymixin.testgame.BaseBlock");
+        assertEquals("base!", helper.invoke(base, "chain"));
 
-        Class<?> cropB = transformAndLoad("dev.polymixin.testgame.CropBlockB");
-        assertEquals("base!", invoke(cropB, "chain"),
+        Class<?> cropB = helper.transformAndLoad("dev.polymixin.testgame.CropBlockB");
+        assertEquals("base!", helper.invoke(cropB, "chain"),
                 "a subclass that does not override the method inherits the patched implementation once");
 
-        Class<?> cropA = transformAndLoad("dev.polymixin.testgame.CropBlockA");
-        assertEquals("base!+A", invoke(cropA, "chain"),
+        Class<?> cropA = helper.transformAndLoad("dev.polymixin.testgame.CropBlockA");
+        assertEquals("base!+A", helper.invoke(cropA, "chain"),
                 "CropBlockA reaches super.chain() unconditionally, so the default provider skips it and"
                         + " the injector fires once, in the parent");
     }
@@ -222,7 +147,7 @@ class EndToEndTest {
     @Test
     @Order(17)
     void theDefaultProviderSkipsSubclassesThatDelegate() throws Exception {
-        transformAndLoad("dev.polymixin.testgame.BaseBlock");
+        helper.transformAndLoad("dev.polymixin.testgame.BaseBlock");
 
         Set<String> chainTargets = new LinkedHashSet<>();
         for (GeneratedMixin generated : GeneratedRegistry.all()) {
@@ -243,23 +168,23 @@ class EndToEndTest {
     @Test
     @Order(18)
     void theDefaultProviderKeepsSubclassesWhoseSuperCallIsConditional() throws Exception {
-        transformAndLoad("dev.polymixin.testgame.BaseBlock");
-        Class<?> conditional = transformAndLoad("dev.polymixin.testgame.ConditionalSuperBlock");
+        helper.transformAndLoad("dev.polymixin.testgame.BaseBlock");
+        Class<?> conditional = helper.transformAndLoad("dev.polymixin.testgame.ConditionalSuperBlock");
 
         Field shortCircuit = conditional.getField("shortCircuit");
         shortCircuit.setBoolean(null, true);
-        assertEquals("short!", invoke(conditional, "chain"),
+        assertEquals("short!", helper.invoke(conditional, "chain"),
                 "the branch that never calls super still has to be patched");
 
         shortCircuit.setBoolean(null, false);
-        assertEquals("base!!", invoke(conditional, "chain"),
+        assertEquals("base!!", helper.invoke(conditional, "chain"),
                 "the cost of keeping it is a double fire on the path that does reach super");
     }
 
     @Test
     @Order(16)
     void subclassesBypassingSkipsOverridersThatCallSuper() throws Exception {
-        transformAndLoad("dev.polymixin.testgame.BaseBlock");
+        helper.transformAndLoad("dev.polymixin.testgame.BaseBlock");
 
         Set<String> overriding = new LinkedHashSet<>();
         TestPlugin.LAST_CONTEXT.subclassesOverriding("chain").forEach(c -> overriding.add(c.getName()));
@@ -282,7 +207,7 @@ class EndToEndTest {
     @Test
     @Order(15)
     void subclassesOverridingFiltersToActualOverriders() throws Exception {
-        transformAndLoad("dev.polymixin.testgame.BaseBlock");
+        helper.transformAndLoad("dev.polymixin.testgame.BaseBlock");
 
         Set<String> all = new LinkedHashSet<>();
         TestPlugin.LAST_CONTEXT.subclassesOfDeclaredTargets().forEach(c -> all.add(c.getName()));
@@ -300,11 +225,11 @@ class EndToEndTest {
     @Test
     @Order(13)
     void discoversMixinsByAnnotationWithNoConfigPlugin() throws Exception {
-        Class<?> base = transformAndLoad("dev.polymixin.testgame.BaseBlock");
-        assertEquals("B[annotated]", invoke(base, "badge"));
+        Class<?> base = helper.transformAndLoad("dev.polymixin.testgame.BaseBlock");
+        assertEquals("B[annotated]", helper.invoke(base, "badge"));
 
-        Class<?> cropA = transformAndLoad("dev.polymixin.testgame.CropBlockA");
-        assertEquals("BA[annotated]", invoke(cropA, "badge"),
+        Class<?> cropA = helper.transformAndLoad("dev.polymixin.testgame.CropBlockA");
+        assertEquals("BA[annotated]", helper.invoke(cropA, "badge"),
                 "@DynamicTargets must reach subclasses without the config declaring an IMixinConfigPlugin");
 
         assertTrue(GeneratedRegistry.all().stream()
@@ -315,8 +240,8 @@ class EndToEndTest {
     @Test
     @Order(12)
     void ignoresClientOnlyMixinsOnTheServerSide() throws Exception {
-        Class<?> base = transformAndLoad("dev.polymixin.testgame.BaseBlock");
-        assertEquals("L+extras", invoke(base, "label"),
+        Class<?> base = helper.transformAndLoad("dev.polymixin.testgame.BaseBlock");
+        assertEquals("L+extras", helper.invoke(base, "label"),
                 "a mixin listed under \"client\" must not apply, and must not be dynamically targeted, on a server");
 
         assertTrue(GeneratedRegistry.all().stream()
@@ -327,11 +252,11 @@ class EndToEndTest {
     @Test
     @Order(11)
     void servesEveryConsumerFromOneSharedScan() throws Exception {
-        Class<?> base = transformAndLoad("dev.polymixin.testgame.BaseBlock");
-        assertEquals("M[two]", invoke(base, "mark"));
+        Class<?> base = helper.transformAndLoad("dev.polymixin.testgame.BaseBlock");
+        assertEquals("M[two]", helper.invoke(base, "mark"));
 
-        Class<?> cropA = transformAndLoad("dev.polymixin.testgame.CropBlockA");
-        assertEquals("MA[two]", invoke(cropA, "mark"));
+        Class<?> cropA = helper.transformAndLoad("dev.polymixin.testgame.CropBlockA");
+        assertEquals("MA[two]", helper.invoke(cropA, "mark"));
 
         assertEquals(1, ScanCache.scanCount(), "the classpath must be scanned exactly once for all consumers");
 
@@ -346,14 +271,14 @@ class EndToEndTest {
     @Test
     @Order(10)
     void accessorMixinsCoverSubclassesWithoutBeingCloned() throws Exception {
-        transformAndLoad("dev.polymixin.testgame.BaseBlock");
-        Class<?> cropA = transformAndLoad("dev.polymixin.testgame.CropBlockA");
+        helper.transformAndLoad("dev.polymixin.testgame.BaseBlock");
+        Class<?> cropA = helper.transformAndLoad("dev.polymixin.testgame.CropBlockA");
 
         assertTrue(GeneratedRegistry.all().stream()
                         .noneMatch(g -> g.originalName().endsWith("MixinHardnessAccessor")),
                 "interface mixins must not be cloned");
 
-        Class<?> accessor = Class.forName("dev.polymixin.testmixins.MixinHardnessAccessor", false, loader);
+        Class<?> accessor = Class.forName("dev.polymixin.testmixins.MixinHardnessAccessor", false, helper.getLoader());
         Object instance = cropA.getDeclaredConstructor().newInstance();
         assertTrue(accessor.isInstance(instance),
                 "a subclass must inherit the accessor interface from its declared-target superclass");
@@ -364,25 +289,25 @@ class EndToEndTest {
     @Test
     @Order(19)
     void appliesInterfaceMixinsToImplementersThatDeclareTheMethod() throws Exception {
-        transformAndLoad("dev.polymixin.testgame.Growable");
+        helper.transformAndLoad("dev.polymixin.testgame.Growable");
 
-        Class<?> wild = transformAndLoad("dev.polymixin.testgame.WildGrowable");
-        assertEquals("wild!", invoke(wild, "grow"));
+        Class<?> wild = helper.transformAndLoad("dev.polymixin.testgame.WildGrowable");
+        assertEquals("wild!", helper.invoke(wild, "grow"));
 
-        Class<?> tended = transformAndLoad("dev.polymixin.testgame.TendedGrowable");
-        assertEquals("grow+tended!", invoke(tended, "grow"),
+        Class<?> tended = helper.transformAndLoad("dev.polymixin.testgame.TendedGrowable");
+        assertEquals("grow+tended!", helper.invoke(tended, "grow"),
                 "delegating to the interface default is no protection: Mixin cannot patch the default,"
                         + " so the implementer needs its own copy");
 
-        Class<?> rooted = transformAndLoad("dev.polymixin.testgame.RootedGrowable");
-        assertEquals("grow", invoke(rooted, "grow"),
+        Class<?> rooted = helper.transformAndLoad("dev.polymixin.testgame.RootedGrowable");
+        assertEquals("grow", helper.invoke(rooted, "grow"),
                 "an implementer that declares no override has nothing an injector can match");
     }
 
     @Test
     @Order(20)
     void generatesInterfaceMixinCopiesForEveryImplementerDeclaringTheMethod() throws Exception {
-        transformAndLoad("dev.polymixin.testgame.Growable");
+        helper.transformAndLoad("dev.polymixin.testgame.Growable");
 
         Set<String> targets = new LinkedHashSet<>();
         for (GeneratedMixin generated : GeneratedRegistry.all()) {

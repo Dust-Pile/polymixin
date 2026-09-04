@@ -1,6 +1,8 @@
 package dev.polymixin.core.platform;
 
 import dev.polymixin.core.diagnostics.Log;
+
+import java.lang.reflect.InvocationTargetException;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
@@ -21,6 +23,8 @@ public final class Platform {
     private static ClasspathSource override;
     private static ClasspathSource resolved;
     private static boolean resolvedOnce;
+    private static boolean isFabricMixin;
+    private static boolean injectorsInInterfacesSupported;
 
     private Platform() {
     }
@@ -79,5 +83,33 @@ public final class Platform {
             }
         }
         return normalized;
+    }
+
+    public static boolean isFabricMixin() {
+        return isFabricMixin;
+    }
+
+    public static boolean injectorsInInterfaces() {
+        return injectorsInInterfacesSupported;
+    }
+
+    static {
+        try {
+            Class.forName("org.spongepowered.asm.mixin.FabricUtil", true, Platform.class.getClassLoader());
+            isFabricMixin = true;
+        } catch (ClassNotFoundException | LinkageError ignored) {
+            isFabricMixin = false;
+        }
+        if (isFabricMixin()) {
+            try {
+                Class<?> featureClass = Class.forName("org.spongepowered.asm.mixin.MixinEnvironment$Feature", true, Platform.class.getClassLoader());
+                injectorsInInterfacesSupported = (boolean) featureClass.getMethod("isEnabled").invoke(featureClass.getField("INJECTORS_IN_INTERFACE_MIXINS").get(null));
+            } catch (ClassNotFoundException | LinkageError | NoSuchFieldException | InvocationTargetException |
+                     IllegalAccessException | NoSuchMethodException ignored) {
+                injectorsInInterfacesSupported = false;
+            }
+        } else {
+            injectorsInInterfacesSupported = false;
+        }
     }
 }
