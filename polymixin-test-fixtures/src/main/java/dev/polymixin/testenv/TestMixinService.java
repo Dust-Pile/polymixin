@@ -6,6 +6,7 @@ import org.spongepowered.asm.logging.ILogger;
 import org.spongepowered.asm.logging.LoggerAdapterConsole;
 import org.spongepowered.asm.launch.platform.container.ContainerHandleVirtual;
 import org.spongepowered.asm.launch.platform.container.IContainerHandle;
+import org.spongepowered.asm.mixin.MixinEnvironment;
 import org.spongepowered.asm.mixin.MixinEnvironment.Phase;
 import org.spongepowered.asm.mixin.transformer.IMixinTransformerFactory;
 import org.spongepowered.asm.service.IClassBytecodeProvider;
@@ -48,6 +49,11 @@ public final class TestMixinService extends MixinServiceAbstract implements ICla
         } catch (Throwable th) {
             throw new IllegalStateException("MixinExtras bootstrap failed", th);
         }
+    }
+
+    @Override
+    public MixinEnvironment.CompatibilityLevel getMinCompatibilityLevel() {
+        return MixinEnvironment.CompatibilityLevel.JAVA_17;
     }
 
     public IMixinTransformerFactory transformerFactory() {
@@ -124,6 +130,14 @@ public final class TestMixinService extends MixinServiceAbstract implements ICla
         byte[] bytes = readBytes(name);
         ClassNode node = new ClassNode();
         new ClassReader(bytes).accept(node, 0);
+        return node;
+    }
+
+    //Fabric adds this method, so it is required to run fabric tests
+    public ClassNode getClassNode(String name, boolean runTransformers, int readerFlags) throws ClassNotFoundException, IOException {
+        byte[] bytes = readBytes(name);
+        ClassNode node = new ClassNode();
+        new ClassReader(bytes).accept(node, readerFlags);
         return node;
     }
 

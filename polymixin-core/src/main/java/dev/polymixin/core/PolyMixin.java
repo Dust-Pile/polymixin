@@ -3,24 +3,9 @@ package dev.polymixin.core;
 import dev.polymixin.api.DynamicTargetProvider;
 import dev.polymixin.api.TargetContext;
 import dev.polymixin.api.TargetInspector;
-import dev.polymixin.core.codegen.CloneResult;
-import dev.polymixin.core.codegen.AnnotationNodes;
-import dev.polymixin.core.codegen.InjectorSelectors;
-import dev.polymixin.core.codegen.MixinCloner;
-import dev.polymixin.core.codegen.TargetMembers;
-import dev.polymixin.core.diagnostics.Diagnostics;
-import dev.polymixin.core.diagnostics.Log;
-import dev.polymixin.core.diagnostics.PolyMixinErrorHandler;
-import dev.polymixin.core.diagnostics.RequireAudit;
-import dev.polymixin.core.diagnostics.Summary;
-import dev.polymixin.core.mixin.AliasingReferenceMapper;
-import dev.polymixin.core.mixin.MixinClassInfoMembers;
-import dev.polymixin.core.mixin.MixinInternals;
-import dev.polymixin.core.mixin.ConfigOwner;
-import dev.polymixin.core.mixin.DynamicTargetsAnnotation;
-import dev.polymixin.core.mixin.MixinRegistryAccess;
-import dev.polymixin.core.mixin.PluginInterceptor;
-import dev.polymixin.core.mixin.ServiceInterceptor;
+import dev.polymixin.core.codegen.*;
+import dev.polymixin.core.diagnostics.*;
+import dev.polymixin.core.mixin.*;
 import dev.polymixin.core.platform.Dependents;
 import dev.polymixin.core.platform.Platform;
 import dev.polymixin.core.registry.GeneratedMixin;
@@ -29,16 +14,6 @@ import dev.polymixin.core.scan.ScanCache;
 import dev.polymixin.core.scan.SuperDelegation;
 import io.github.classgraph.ClassInfo;
 import io.github.classgraph.ScanResult;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Path;
-import java.security.MessageDigest;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.tree.AnnotationNode;
 import org.objectweb.asm.tree.ClassNode;
@@ -50,6 +25,11 @@ import org.spongepowered.asm.mixin.extensibility.IMixinInfo;
 import org.spongepowered.asm.mixin.refmap.IReferenceMapper;
 import org.spongepowered.asm.service.IClassTracker;
 import org.spongepowered.asm.service.MixinService;
+
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Path;
+import java.security.MessageDigest;
+import java.util.*;
 
 public final class PolyMixin {
 
@@ -219,7 +199,7 @@ public final class PolyMixin {
     }
 
     private static void generate(Candidate candidate, ScanResult scan,
-                                 Map<IMixinConfig, List<GeneratedMixin>> pending) {
+            Map<IMixinConfig, List<GeneratedMixin>> pending) {
         IMixinInfo info = candidate.info;
         IMixinConfig config = candidate.config;
 
@@ -271,7 +251,7 @@ public final class PolyMixin {
         }
 
         boolean sourceIsInterface = (source.access & Opcodes.ACC_INTERFACE) != 0;
-        if (sourceIsInterface && InjectorSelectors.anyPresent(source)) {
+        if ((sourceIsInterface && InjectorSelectors.anyPresent(source)) && (!Platform.isFabricMixin() || !Platform.injectorsInInterfaces())) {
             detachFromDeclaredInterfaces(info, config, declared, scan);
         }
         IClassTracker tracker = MixinService.getService().getClassTracker();
@@ -348,7 +328,7 @@ public final class PolyMixin {
      * generated copies carry the injectors onto the implementers instead.
      */
     private static void detachFromDeclaredInterfaces(IMixinInfo info, IMixinConfig config,
-                                                     List<String> declared, ScanResult scan) {
+            List<String> declared, ScanResult scan) {
         for (String target : declared) {
             ClassInfo targetInfo = scan.getClassInfo(target);
             if (targetInfo == null || !targetInfo.isInterface()) {
@@ -370,7 +350,7 @@ public final class PolyMixin {
     }
 
     private static TargetInspector inspector(ScanResult scan, IMixinConfig config, String mixinClassRef,
-                                             boolean constructorTargeted, Set<String> selectors) {
+            boolean constructorTargeted, Set<String> selectors) {
         return new TargetInspector() {
 
             @Override
@@ -459,7 +439,9 @@ public final class PolyMixin {
         }
         if (remapped.charAt(0) != 'L') {
             int paren = remapped.indexOf('(');
-            return paren > 0 ? remapped.substring(0, paren) : remapped;
+            return paren > 0
+                   ? remapped.substring(0, paren)
+                   : remapped;
         }
         int semi = remapped.indexOf(';');
         if (semi < 0) {
@@ -467,8 +449,12 @@ public final class PolyMixin {
         }
         String tail = remapped.substring(semi + 1);
         int paren = tail.indexOf('(');
-        String name = paren > 0 ? tail.substring(0, paren) : tail;
-        return name.isEmpty() ? fallback : name;
+        String name = paren > 0
+                      ? tail.substring(0, paren)
+                      : tail;
+        return name.isEmpty()
+               ? fallback
+               : name;
     }
 
     private static boolean install(IMixinConfig config) {
@@ -487,7 +473,7 @@ public final class PolyMixin {
             }
         } catch (Throwable th) {
             Log.error("could not alias the reference mapper for {}; soft-remapped references in generated"
-                    + " mixins would silently fail to resolve, so no dynamic targets will be added: {}",
+                            + " mixins would silently fail to resolve, so no dynamic targets will be added: {}",
                     config.getName(), th);
             return false;
         }
@@ -527,7 +513,7 @@ public final class PolyMixin {
         final boolean relaxInjectionRequirements;
 
         Candidate(IMixinInfo info, IMixinConfig config, DynamicTargetProvider provider,
-                  boolean relaxInjectionRequirements) {
+                boolean relaxInjectionRequirements) {
             this.info = info;
             this.config = config;
             this.provider = provider;
